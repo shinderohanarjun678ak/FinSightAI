@@ -1,5 +1,3 @@
-# Implements registration and sign-in business logic
-# Applies authentication rules and password verification
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,108 +5,72 @@ from pwdlib import PasswordHash
 
 from src.backend.database.models import User
 
-
-# Create a password hasher using the Argon2 algorithm
-
+# Initialize the password hashing utility
 password_hasher = PasswordHash.recommended()
 
 
-def register_user(
-    db: Session,
-    email: str,
-    password: str
-) -> User:
-   
-   """
-   Register a new user
+def register_user(db: Session, email: str, password: str) -> User:
+    """
+    Register a new user.
+    Store the hashed password, never the plain-text password.
+    """
+    email = email.strip().lower()
 
-   1. Check whether the email aldready exists.
-   2. Hash the password.
-   3. Save the user in MySQL.
-   
-   """
+    # Check whether the email is already registered
+    existing_user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
-   # Remove accidental spaces and normalize the email
+    if existing_user:
+        raise ValueError("Email is already registered.")
 
-   email = email.strip().lower()
+    # Hash the password
+    hashed_password = password_hasher.hash(password)
 
-   # Check whether this email is aldready registered
+    # Create the new user
+    new_user = User(
+        email=email,
+        password_hash=hashed_password
+    )
 
-   existing_user = (
-    db.query(User)
-    .filter(User.email == email)
-    .first()
-   )
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
 
-   if existing_user:
-      raise ValueError("Email is aldready registered. ")
+        return new_user
 
-# Never store the original password in the database
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
-hashed_password = password_hasher.hash(password)
-
-# Create a Python User object
-
-new_user = User(
-    email=email,
-    password_hash=hashed_password
-)
-
-
-try:
-    # Add the user to the current database transaction
-    db.add(new_user)
-
-    # Send the Insert operation to MySQL
-    db.commit()
-
-    # Load generated values, such as the user ID
-    db.refresh(new_user)
-
-    return new_user
-
-except SQLAlchemyError:
-    # Undo the transaction if a database error occurs
-    db.rollback()
-    raise
 
 def authenticate_user(
     db: Session,
     email: str,
     password: str
 ):
+    """
+    Authenticate a user using email and password.
+    Return the User object if valid; otherwise, return None.
+    """
+    email = email.strip().lower()
 
-  """
-  Authenticate a user during sign-in.
+    # Find the user by email
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
 
-  Return the User object if credentials are valid.
-  Otherwise, return None.
-
-  """
-
-
-  # Normalize the email before searching
-
-  email = email.strip().lower()
-
-  # Find the account by email
-
-  user = (
-    db.query(User)
-    .filter(User.email == email)
-    .first()
-  )
-
-   # No account exists for this email
+    # Reject an unknown email
     if user is None:
         return None
 
-    # Compare the entered password with the stored hash
-    if not password_hasher.verify(
-        password,
-        user.password_hash
-    ):
+    # Verify the submitted password against its hash
+    if not password_hasher.verify(password, user.password_hash):
         return None
 
-    # Credentials are valid
     return user
