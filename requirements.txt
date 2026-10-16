@@ -1,0 +1,36 @@
+# Data handling
+
+pandas
+numpy
+
+
+# # Data visualization
+plotly
+matplotlib
+
+# PDF extraction — compatible with your existing code
+PyMuPDF
+pytest
+
+
+# Frontend framework
+streamlit
+
+
+# Environment configuration
+python-dotenv
+
+
+# Backend API
+fastapi                # Builds backend API endpoints
+uvicorn[standard]      # Runs the FASTAPI application
+
+# MySQL database connection
+sqlalchemy # Connects application logic to database operations through ORM
+pymysql    # MySQL database driver
+
+
+
+# Authentication and password security
+pwdlib[argon2]   # Securely hashes and verifies passwords
+PyJWT            # Creates and verifies authentication tokens
